@@ -1,7 +1,9 @@
 /* ============================================================
-   Consent-gated Google Analytics (GA4)
-   Loads GA only after the visitor accepts — nothing tracks
-   before that — and honours the browser's Do-Not-Track signal.
+   Google Analytics (GA4) with Consent Mode v2
+   The tag loads immediately (so GA can detect it and record
+   cookieless traffic), but analytics storage is DENIED by
+   default — no cookies are set until the visitor accepts, then
+   it upgrades to full measurement. Honours Do-Not-Track.
    Drop-in:
      <script src="assets/analytics.js" data-ga="G-XXXXXXXXXX"></script>
    ============================================================ */
@@ -14,27 +16,36 @@
   var KEY = 'dr-analytics-consent';       // 'granted' | 'denied'
   var stored = null;
   try { stored = localStorage.getItem(KEY); } catch (e) {}
-
   var dnt = navigator.doNotTrack === '1' || window.doNotTrack === '1' || navigator.msDoNotTrack === '1';
 
-  function loadGA() {
-    var s = document.createElement('script');
-    s.async = true;
-    s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
-    document.head.appendChild(s);
-    window.dataLayer = window.dataLayer || [];
-    window.gtag = function () { window.dataLayer.push(arguments); };
-    window.gtag('js', new Date());
-    window.gtag('config', GA_ID, { anonymize_ip: true });
-  }
+  // gtag bootstrap
+  window.dataLayer = window.dataLayer || [];
+  window.gtag = function () { window.dataLayer.push(arguments); };
+
+  // Consent defaults MUST be set before config. Default to denied
+  // (granted only if the visitor accepted on a previous visit).
+  var analyticsDefault = (stored === 'granted') ? 'granted' : 'denied';
+  gtag('consent', 'default', {
+    ad_storage: 'denied',
+    ad_user_data: 'denied',
+    ad_personalization: 'denied',
+    analytics_storage: analyticsDefault
+  });
+
+  // Load the tag immediately so GA can detect it and record (cookieless) traffic.
+  var s = document.createElement('script');
+  s.async = true;
+  s.src = 'https://www.googletagmanager.com/gtag/js?id=' + encodeURIComponent(GA_ID);
+  document.head.appendChild(s);
+  gtag('js', new Date());
+  gtag('config', GA_ID, { anonymize_ip: true });
 
   function remember(v) { try { localStorage.setItem(KEY, v); } catch (e) {} }
 
-  // Honour a prior choice or a DNT signal without showing anything.
-  if (stored === 'granted') { loadGA(); return; }
-  if (stored === 'denied' || dnt) return;
+  // Prior choice or a DNT signal → no banner. (Tag stays in its consent state.)
+  if (stored === 'granted' || stored === 'denied' || dnt) return;
 
-  // ── first visit: show a slim, on-brand consent banner ──
+  // ── first visit: slim, on-brand consent banner ──
   var css = '\
   .dr-consent{position:fixed;left:1rem;right:1rem;bottom:1rem;z-index:9999;max-width:34rem;margin:0 auto;\
     background:rgba(2,8,16,.94);-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);\
@@ -59,7 +70,7 @@
     bar.setAttribute('role', 'dialog');
     bar.setAttribute('aria-label', 'Analytics consent');
     bar.innerHTML =
-      '<p>This site uses <b>Google Analytics</b> to count visitors. No data is collected until you accept. ' +
+      '<p>This site uses <b>Google Analytics</b> to count visitors. No cookies are set until you accept. ' +
       'See <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">how Google uses data</a>.</p>' +
       '<div class="dr-btns">' +
       '<button type="button" class="dr-decline">Decline</button>' +
@@ -67,7 +78,9 @@
       '</div>';
     document.body.appendChild(bar);
     bar.querySelector('.dr-accept').addEventListener('click', function () {
-      remember('granted'); bar.remove(); loadGA();
+      remember('granted');
+      gtag('consent', 'update', { analytics_storage: 'granted' });
+      bar.remove();
     });
     bar.querySelector('.dr-decline').addEventListener('click', function () {
       remember('denied'); bar.remove();
