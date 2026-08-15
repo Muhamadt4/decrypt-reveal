@@ -248,6 +248,8 @@
     /* shimmer / parallax / bugs / steps */
     .thumbrow{gap:8px}
     .depthbox{gap:10px}
+    /* max-height + aspect-ratio was forcing the width back up past the viewport → x-overflow */
+    .parstage{width:100%; max-height:none}
     code.glsl{font-size:10.5px; padding:14px 16px}
     .bug{padding:20px}
     .step{gap:12px 16px}
