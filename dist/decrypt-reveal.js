@@ -1,0 +1,460 @@
+/* ============================================================
+   Decrypt Reveal  ·  v1.0.0  ·  MIT
+   A cursor-following "decrypt lens" that reveals a hidden,
+   corrupted-broadcast version of a photo — with glitch bursts,
+   particles, a HUD, and optional WebGL depth parallax.
+
+   Zero dependencies. Drop-in: link decrypt-reveal.css, add a container element
+   (e.g. a div with id "hero"), load this file, then call:
+
+       DecryptReveal(document.getElementById('hero'), {
+         images: { base: 'scene.webp', broadcast: 'broadcast.webp' }
+       });
+
+   See README.md for the full option list and examples/ for working pages.
+   ============================================================ */
+(function (root, factory) {
+  if (typeof module === 'object' && module.exports) module.exports = factory();
+  else root.DecryptReveal = factory();
+}(typeof self !== 'undefined' ? self : this, function () {
+  'use strict';
+
+  var DEFAULTS = {
+    images: {
+      base: null,          // required — layer 1, the photoreal scene
+      broadcast: null,     // required — layer 2, the corrupted version
+      frames: [],          // optional — extra shimmer variants (with broadcast = frame set)
+      depth: null,         // optional — grayscale depth map (bright = near) → enables parallax
+      parallaxBase: null   // optional — image to parallax (defaults to `base`)
+    },
+    // lens geometry
+    lensRadius: 0.24,      // idle-hover radius, as a fraction of min(width, 1400)
+    fullRadius: 0.80,      // hold-to-decrypt radius, as a fraction of the stage diagonal
+    softness: 0.42,        // inner solid fraction of the mask (0–1)
+    lag: 0.13,             // cursor-follow smoothing (lower = laggier / more cinematic)
+    radiusLag: 0.085,      // radius smoothing
+    // behaviours
+    intro: true,           // auto-open a sweep on load so visitors discover the interaction
+    glitch: true,          // random glitch bursts while hovering
+    scanlines: true,
+    particles: true,
+    vignette: true,
+    flipInterval: 700,     // ms between shimmer-frame flips when idle (± jitter)
+    flipBurst: 80,         // ms between flips during a glitch burst
+    hideCursor: true,      // hide the OS cursor; the effect draws its own reticle
+    // HUD
+    hud: true,
+    hudLabel: 'SIGNAL_04',
+    hint: 'MOVE TO SCAN · HOLD TO DECRYPT',
+    // colour
+    accent: '#7EB8DA',
+    particleColor: '#DCEBF5',
+    ghostTint: true,
+    // parallax
+    parallax: true,
+    parallaxStrength: [0.020, 0.014],
+    // callbacks
+    onReveal: null,        // fired once when the user first opens the lens
+    onDecrypt: null        // fired on hold-to-decrypt (pointer down)
+  };
+
+  function assign(target) {
+    for (var i = 1; i < arguments.length; i++) {
+      var s = arguments[i]; if (!s) continue;
+      for (var k in s) if (Object.prototype.hasOwnProperty.call(s, k)) {
+        if (s[k] && typeof s[k] === 'object' && !Array.isArray(s[k]))
+          target[k] = assign(target[k] || {}, s[k]);
+        else target[k] = s[k];
+      }
+    }
+    return target;
+  }
+  var lerp = function (a, b, k) { return a + (b - a) * k; };
+  function el(tag, cls) { var e = document.createElement(tag); if (cls) e.className = cls; return e; }
+
+  function DecryptReveal(container, userCfg) {
+    if (!(this instanceof DecryptReveal)) return new DecryptReveal(container, userCfg);
+    if (typeof container === 'string') container = document.querySelector(container);
+    if (!container) throw new Error('DecryptReveal: container not found');
+
+    var cfg = assign({}, DEFAULTS, userCfg || {});
+    cfg.images = assign({}, DEFAULTS.images, (userCfg || {}).images || {});
+    if (!cfg.images.base || !cfg.images.broadcast)
+      throw new Error('DecryptReveal: images.base and images.broadcast are required');
+
+    var reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var self = this;
+    var listeners = [];   // [el, type, fn] for teardown
+    var rafId = null;
+    var on = function (t, type, fn, opts) { t.addEventListener(type, fn, opts); listeners.push([t, type, fn]); };
+
+    /* ── build the DOM ─────────────────────────────────── */
+    container.classList.add('decrypt-reveal');
+    if (cfg.hideCursor) container.classList.add('dr-hide-cursor');
+    container.style.setProperty('--dr-accent', cfg.accent);
+    container.style.setProperty('--dr-particle', cfg.particleColor);
+    container.style.setProperty('--dr-soft', cfg.softness);
+    container.innerHTML = '';
+
+    var base = el('img', 'dr-layer dr-base');
+    base.src = cfg.images.base; base.alt = ''; base.draggable = false;
+    container.appendChild(base);
+
+    // optional WebGL parallax canvas + fallback (base image stays visible until GL is ready)
+    var glCanvas = null;
+    if (cfg.parallax && cfg.images.depth) {
+      glCanvas = el('canvas', 'dr-layer dr-gl');
+      container.appendChild(glCanvas);
+    }
+
+    var ghost = el('div', 'dr-layer dr-ghost' + (cfg.ghostTint ? ' dr-tint' : ''));
+    var ghostImg = el('img'); ghostImg.src = cfg.images.broadcast; ghostImg.alt = '';
+    ghostImg.style.cssText = 'position:absolute;inset:0;width:100%;height:100%;object-fit:cover';
+    ghost.appendChild(ghostImg);
+    container.appendChild(ghost);
+
+    // reveal layer: broadcast + variant frames, opacity-flipped for the CRT shimmer
+    var revealWrap = el('div', 'dr-layer dr-reveal-wrap');
+    var frameSrcs = [cfg.images.broadcast].concat(cfg.images.frames || []);
+    var frameEls = frameSrcs.map(function (src, i) {
+      var f = el('img', 'dr-layer dr-frame' + (i === 0 ? ' dr-show' : ''));
+      f.src = src; f.alt = i === 0 ? 'decrypted broadcast' : ''; f.draggable = false;
+      revealWrap.appendChild(f); return f;
+    });
+    container.appendChild(revealWrap);
+
+    var scan = null;
+    if (cfg.scanlines) { scan = el('div', 'dr-layer dr-scan'); container.appendChild(scan); }
+
+    var tear = el('div', 'dr-layer dr-tear');
+    tear.style.backgroundImage = 'url(' + cfg.images.broadcast + ')';
+    container.appendChild(tear);
+
+    if (cfg.vignette) container.appendChild(el('div', 'dr-layer dr-vignette'));
+
+    var fx = null, ctx = null;
+    if (cfg.particles) { fx = el('canvas', 'dr-layer dr-fx'); container.appendChild(fx); ctx = fx.getContext('2d'); }
+
+    var hud = null, recSpan = null, sigName = null, sigEl = null, hintEl = null, decryptEl = null;
+    if (cfg.hud) {
+      hud = el('div', 'dr-hud');
+      sigEl = el('div', 'dr-signal'); sigEl.innerHTML = cfg.hudLabel + ' / <b>SCENE.RAW</b>';
+      sigName = sigEl.querySelector('b');
+      var rec = el('div', 'dr-rec'); rec.appendChild(el('i')); recSpan = el('span'); recSpan.textContent = 'STANDBY'; rec.appendChild(recSpan);
+      decryptEl = el('div', 'dr-decrypt'); decryptEl.textContent = 'DECRYPTING ▓▓░ 0%';
+      hud.appendChild(sigEl); hud.appendChild(rec); hud.appendChild(decryptEl);
+      if (cfg.hint) { hintEl = el('div', 'dr-hint'); hintEl.textContent = cfg.hint; hud.appendChild(hintEl); }
+      container.appendChild(hud);
+    }
+
+    /* ── reduced motion: static crossfade only ─────────── */
+    if (reduced) {
+      revealWrap.style.transition = 'opacity .4s';
+      revealWrap.style.opacity = '0';
+      on(container, 'pointerenter', function () { revealWrap.style.opacity = '1'; });
+      on(container, 'pointerleave', function () { revealWrap.style.opacity = '0'; });
+      this.setPreview = function (open) { revealWrap.style.opacity = open ? '1' : '0'; };
+      this.update = function (p) {
+        if (p && p.accent != null) container.style.setProperty('--dr-accent', p.accent);
+        if (p && p.particleColor != null) container.style.setProperty('--dr-particle', p.particleColor);
+      };
+      this.destroy = function () { teardown(); };
+      return;
+    }
+
+    /* ── state ─────────────────────────────────────────── */
+    var W = 0, H = 0, vis = true, firedReveal = false, pinned = false;
+    var S = { px: .5, py: .42, lx: .5, ly: .42, r: 0, tR: 0, over: false, hold: false, intro: cfg.intro };
+    var BASE = function () { return Math.min(W, 1400) * cfg.lensRadius; };
+    var FULL = function () { return Math.hypot(W, H) * cfg.fullRadius; };
+
+    function resize() {
+      var b = container.getBoundingClientRect(); W = b.width; H = b.height;
+      var d = Math.min(window.devicePixelRatio || 1, 2);
+      if (fx) { fx.width = W * d; fx.height = H * d; ctx.setTransform(d, 0, 0, d, 0, 0); }
+    }
+    resize();
+    on(window, 'resize', resize);
+    var io = new IntersectionObserver(function (e) { vis = e[0].isIntersecting; });
+    io.observe(container);
+
+    /* ── pointer ───────────────────────────────────────── */
+    function setP(e) { var b = container.getBoundingClientRect();
+      S.px = (e.clientX - b.left) / b.width; S.py = (e.clientY - b.top) / b.height; }
+    function open() {
+      S.over = true; S.tR = BASE(); container.classList.add('dr-on');
+      if (recSpan) recSpan.textContent = 'REC';
+      if (!firedReveal) { firedReveal = true; if (cfg.onReveal) cfg.onReveal(self); }
+    }
+    on(container, 'pointerenter', function (e) { setP(e); if (S.intro) return; S.lx = S.px; S.ly = S.py; open(); });
+    on(container, 'pointermove', function (e) { setP(e); if (S.intro) { S.intro = false; open(); } });
+    on(container, 'pointerleave', function () {
+      S.hold = false; container.classList.remove('dr-holding');
+      if (pinned) { S.px = .5; S.py = .42; S.tR = BASE(); return; }
+      S.over = false; S.tR = 0;
+      container.classList.remove('dr-on');
+      if (recSpan) recSpan.textContent = 'STANDBY';
+    });
+    on(container, 'pointerdown', function (e) {
+      setP(e); S.intro = false; open();      // open() sets the hover radius…
+      S.hold = true; S.tR = FULL();           // …then escalate to the full decrypt
+      container.classList.add('dr-holding');
+      burst(performance.now(), true);
+      if (cfg.onDecrypt) cfg.onDecrypt(self);
+    });
+    on(window, 'pointerup', function () { S.hold = false; container.classList.remove('dr-holding'); S.tR = S.over ? BASE() : 0; });
+
+    /* ── glitch bursts ─────────────────────────────────── */
+    var burstUntil = 0, nextG = performance.now() + 1400, nextFlick = 0, curFrame = 0;
+    function burst(t, big) {
+      if (!cfg.glitch) return;
+      burstUntil = t + (big ? 200 : 90 + Math.random() * 80);
+      if (big || Math.random() < .35) {
+        var y = 10 + Math.random() * 78, h = 2 + Math.random() * 4;
+        tear.style.clipPath = 'inset(' + y + '% 0 ' + (100 - y - h) + '% 0)';
+        tear.style.opacity = .9;
+        tear.style.transform = 'translateX(' + (Math.random() - .5) * 22 + 'px)';
+        setTimeout(function () { tear.style.opacity = 0; }, 70 + Math.random() * 50);
+      }
+    }
+    function flipFrame() {
+      if (frameEls.length < 2) return;
+      var next = (curFrame + 1 + (Math.random() * (frameEls.length - 1) | 0)) % frameEls.length;
+      frameEls[curFrame].classList.remove('dr-show');
+      frameEls[next].classList.add('dr-show'); curFrame = next;
+    }
+
+    /* ── particles + main loop ─────────────────────────── */
+    var parts = [];
+    var intro = { t0: performance.now() + 600, dur: 2300 };
+    var last = performance.now();
+    var nextFlip = 0;
+
+    function frame(t) {
+      rafId = requestAnimationFrame(frame);
+      if (!vis && !S.intro) return;
+      var dt = Math.min(.05, (t - last) / 1000); last = t;
+
+      if (S.intro) {
+        var k = (t - intro.t0) / intro.dur;
+        if (k >= 1) { S.intro = false; S.tR = 0; }
+        else if (k > 0) {
+          var e = Math.sin(Math.min(1, k) * Math.PI);
+          S.px = .5 + Math.sin(k * 2.4) * .06; S.py = .3 + k * .14; S.tR = BASE() * e;
+          if (k < .05) { S.lx = S.px; S.ly = S.py; }
+        }
+      }
+
+      if (pinned && !S.intro) { S.over = true; if (!S.hold) S.tR = BASE(); }
+
+      S.lx = lerp(S.lx, S.px, 1 - Math.pow(1 - cfg.lag, dt * 60));
+      S.ly = lerp(S.ly, S.py, 1 - Math.pow(1 - cfg.lag, dt * 60));
+      var breath = (S.over && !S.hold) ? Math.sin(t / 620) * W * .005 : 0;
+      S.r = lerp(S.r, S.tR + breath, 1 - Math.pow(1 - cfg.radiusLag, dt * 60));
+
+      var mx = (S.lx * 100).toFixed(2) + '%', my = (S.ly * 100).toFixed(2) + '%', r = Math.max(0, S.r).toFixed(1) + 'px';
+      var maskTargets = [revealWrap, ghost]; if (scan) maskTargets.push(scan);
+      for (var i = 0; i < maskTargets.length; i++) {
+        maskTargets[i].style.setProperty('--mx', mx);
+        maskTargets[i].style.setProperty('--my', my);
+        maskTargets[i].style.setProperty('--r', r);
+      }
+
+      // ghost glitch slices during a burst
+      var active = cfg.glitch && t < burstUntil && S.over;
+      if (active) {
+        var gy = Math.random() * 86, gh = 3 + Math.random() * 9;
+        ghost.style.clipPath = 'inset(' + gy + '% 0 ' + Math.max(0, 100 - gy - gh) + '% 0)';
+        ghost.style.transform = 'translateX(' + (Math.random() - .5) * 16 + 'px)';
+        ghost.style.opacity = .3 + Math.random() * .35;
+      } else if (ghost.style.opacity !== '0') ghost.style.opacity = 0;
+
+      if (cfg.glitch && S.over && t > nextG) { burst(t, false); nextG = t + 800 + Math.random() * 1800; }
+
+      // frame shimmer: slow idle flicks, rapid flips inside a burst
+      if (t > nextFlip && (S.over || S.intro)) {
+        flipFrame();
+        var span = active ? cfg.flipBurst : cfg.flipInterval;
+        nextFlip = t + span * (0.6 + Math.random() * 0.8);   // 0.6×–1.4× the configured interval
+      }
+      if (sigName && S.over && t > nextFlick) {
+        sigName.textContent = Math.random() < .5 ? 'BROADCAST.BIN' : 'SCENE.RAW';
+        nextFlick = t + 600 + Math.random() * 1400;
+      }
+      if (decryptEl && S.hold) {
+        var pct = Math.min(99, Math.round((S.r / FULL()) * 100));
+        var filled = Math.round(pct / 20);
+        decryptEl.textContent = 'DECRYPTING ' + '▓'.repeat(filled) + '░'.repeat(5 - filled) +
+          ' ' + (pct >= 98 ? 'ACCESS GRANTED' : pct + '%');
+      }
+
+      // particle canvas
+      if (ctx) drawParticles(t, dt);
+    }
+
+    function drawParticles(t, dt) {
+      ctx.clearRect(0, 0, W, H);
+      var cx = S.lx * W, cy = S.ly * H, diag = Math.hypot(W, H);
+      if (S.over && S.r > 8 && S.r * .9 < diag * .5 && parts.length < 180) {
+        for (var i = 0; i < (S.hold ? 8 : 3); i++) {
+          var a = Math.random() * Math.PI * 2, rr = S.r * (.9 + Math.random() * .14);
+          parts.push({ x: cx + Math.cos(a) * rr, y: cy + Math.sin(a) * rr,
+            vx: Math.cos(a) * 30 + (Math.random() - .5) * 20, vy: Math.sin(a) * 30 + (Math.random() - .5) * 20,
+            l: 0, m: .5 + Math.random() * .7, s: Math.random() < .75 ? 1.4 : 2.2 });
+        }
+      }
+      ctx.fillStyle = cfg.particleColor;
+      for (var j = parts.length - 1; j >= 0; j--) {
+        var p = parts[j]; p.l += dt;
+        if (p.l > p.m) { parts.splice(j, 1); continue; }
+        p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= .985; p.vy *= .985;
+        ctx.globalAlpha = (1 - p.l / p.m) * .8; ctx.fillRect(p.x, p.y, p.s, p.s);
+      }
+      // dotted lens ring
+      if (S.r > 8 && S.r * .9 < diag * .5 && (S.over || S.intro)) {
+        ctx.globalAlpha = .3; ctx.strokeStyle = cfg.particleColor; ctx.setLineDash([2, 5]);
+        ctx.beginPath(); ctx.arc(cx, cy, S.r * .9, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+      }
+      // reticle at the true cursor
+      if (S.over) {
+        var x = S.px * W, y = S.py * H;
+        ctx.globalAlpha = .9; ctx.strokeStyle = '#E8E8E8'; ctx.setLineDash([2, 3]);
+        ctx.beginPath(); ctx.arc(x, y, 10, 0, Math.PI * 2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath();
+        ctx.moveTo(x - 15, y); ctx.lineTo(x - 11, y); ctx.moveTo(x + 11, y); ctx.lineTo(x + 15, y);
+        ctx.moveTo(x, y - 15); ctx.lineTo(x, y - 11); ctx.moveTo(x, y + 11); ctx.lineTo(x, y + 15); ctx.stroke();
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    rafId = requestAnimationFrame(frame);
+
+    /* ── optional WebGL depth parallax on the base ─────── */
+    if (glCanvas) initParallax(glCanvas, base, cfg, on);
+
+    /* ── teardown ──────────────────────────────────────── */
+    function teardown() {
+      if (rafId) cancelAnimationFrame(rafId);
+      if (io) io.disconnect();
+      for (var i = 0; i < listeners.length; i++) listeners[i][0].removeEventListener(listeners[i][1], listeners[i][2]);
+      listeners = [];
+    }
+    this.destroy = function () { teardown(); container.classList.remove('dr-on', 'dr-holding'); };
+
+    // Pin the lens open (used by the playground so parameter changes are always visible).
+    this.setPreview = function (open) {
+      pinned = !!open;
+      if (pinned) {
+        S.intro = false; S.over = true;
+        S.px = .5; S.py = .42; S.tR = BASE();
+        container.classList.add('dr-on');
+        if (recSpan) recSpan.textContent = 'REC';
+      } else {
+        S.over = false; S.tR = 0; container.classList.remove('dr-on');
+        if (recSpan) recSpan.textContent = 'STANDBY';
+      }
+    };
+
+    // Live-update cheap parameters without rebuilding (radius, lag, colours, HUD text…).
+    // Structural options (which layers exist, images, parallax on/off) require a fresh instance.
+    this.update = function (p) {
+      if (!p) return;
+      for (var k in p) if (Object.prototype.hasOwnProperty.call(p, k)) cfg[k] = p[k];
+      if (p.softness != null) container.style.setProperty('--dr-soft', cfg.softness);
+      if (p.accent != null) container.style.setProperty('--dr-accent', cfg.accent);
+      if (p.particleColor != null) container.style.setProperty('--dr-particle', cfg.particleColor);
+      if (p.hudLabel != null && sigEl) sigEl.innerHTML = cfg.hudLabel + ' / <b>' + (sigName ? sigName.textContent : 'SCENE.RAW') + '</b>', sigName = sigEl.querySelector('b');
+      if (p.hint != null && hintEl) hintEl.textContent = cfg.hint;
+      if (p.ghostTint != null) ghost.classList.toggle('dr-tint', !!cfg.ghostTint);
+      if (S.over && !S.hold) S.tR = BASE();  // reflect a radius change immediately
+    };
+
+    this.container = container;
+    this.config = cfg;
+  }
+
+  /* WebGL depth parallax — edge-aware UV offset so silhouettes stay pinned.
+     Degrades silently to the plain base image on any failure. */
+  function initParallax(cv, baseImg, cfg, on) {
+    var gl;
+    try { gl = cv.getContext('webgl', { antialias: false, alpha: false }); } catch (e) { return; }
+    if (!gl) return;
+
+    function sh(type, src) { var o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o);
+      return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; }
+    var vs = sh(gl.VERTEX_SHADER, 'attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x,1.-a.y);gl_Position=vec4(a*2.-1.,0.,1.);}');
+    var fs = sh(gl.FRAGMENT_SHADER,
+      'precision mediump float;varying vec2 v;uniform sampler2D uT,uD;uniform vec2 uO;void main(){' +
+      'float d=texture2D(uD,v).r;float e=.012;' +
+      'float gx=texture2D(uD,v+vec2(e,0.)).r-texture2D(uD,v-vec2(e,0.)).r;' +
+      'float gy=texture2D(uD,v+vec2(0.,e)).r-texture2D(uD,v-vec2(0.,e)).r;' +
+      'float ed=clamp(1.-5.*length(vec2(gx,gy)),0.,1.);' +
+      'gl_FragColor=vec4(texture2D(uT,v+uO*(d-.5)*ed).rgb,1.);}');
+    if (!vs || !fs) return;
+
+    var pr = gl.createProgram(); gl.attachShader(pr, vs); gl.attachShader(pr, fs);
+    gl.linkProgram(pr); gl.useProgram(pr);
+    var buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0, 0, 1, 0, 0, 1, 1, 1]), gl.STATIC_DRAW);
+    var loc = gl.getAttribLocation(pr, 'a'); gl.enableVertexAttribArray(loc);
+    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    gl.uniform1i(gl.getUniformLocation(pr, 'uT'), 0);
+    gl.uniform1i(gl.getUniformLocation(pr, 'uD'), 1);
+    var uO = gl.getUniformLocation(pr, 'uO');
+
+    function mkTex(unit, img) {
+      gl.activeTexture(gl.TEXTURE0 + unit);
+      gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, img);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    }
+
+    var srcImg = new Image();
+    if (cfg.images.parallaxBase) { srcImg.crossOrigin = 'anonymous'; srcImg.src = cfg.images.parallaxBase; }
+    else srcImg = baseImg; // reuse the already-loaded base
+    var dep = new Image(); dep.crossOrigin = 'anonymous';
+    var stage = cv.parentNode;
+    var loaded = 0, ready = false, vis = true;
+
+    function arm() {
+      if (++loaded < 2) return;
+      try {
+        mkTex(0, srcImg); mkTex(1, dep);
+        var b = stage.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 2);
+        cv.width = b.width * d; cv.height = b.height * d; gl.viewport(0, 0, cv.width, cv.height);
+        cv.style.display = 'block'; ready = true;
+      } catch (e) { ready = false; }
+    }
+    if (srcImg.complete && srcImg.naturalWidth) arm(); else srcImg.onload = arm;
+    dep.onload = arm; dep.onerror = function () { ready = false; }; dep.src = cfg.images.depth;
+
+    var io = new IntersectionObserver(function (e) { vis = e[0].isIntersecting; }); io.observe(stage);
+    var P = { tx: 0, ty: 0, x: 0, y: 0 };
+    on(window, 'pointermove', function (e) {
+      var b = stage.getBoundingClientRect();
+      P.tx = Math.max(-1, Math.min(1, (e.clientX - (b.left + b.width / 2)) / (b.width * .9)));
+      P.ty = Math.max(-1, Math.min(1, (e.clientY - (b.top + b.height / 2)) / (b.height * .9)));
+    });
+    var last = performance.now();
+    (function draw(t) {
+      requestAnimationFrame(draw);
+      if (!ready || !vis) return;
+      var dt = Math.min(.05, (t - last) / 1000); last = t;
+      P.x = P.x + (P.tx - P.x) * (1 - Math.pow(1 - .06, dt * 60));
+      P.y = P.y + (P.ty - P.y) * (1 - Math.pow(1 - .06, dt * 60));
+      try {
+        gl.uniform2f(uO,
+          (P.x + Math.sin(t * .00035) * .08) * cfg.parallaxStrength[0],
+          (P.y + Math.cos(t * .00028) * .07) * cfg.parallaxStrength[1]);
+        gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
+      } catch (e) { ready = false; }
+    })(performance.now());
+  }
+
+  DecryptReveal.version = '1.0.0';
+  DecryptReveal.defaults = DEFAULTS;
+  return DecryptReveal;
+}));

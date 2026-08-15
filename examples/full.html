@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decrypt Reveal — Full example</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../dist/decrypt-reveal.css">
+<style>
+  body { margin: 0; background: #001B2E; color: #E8E8E8;
+         font-family: 'IBM Plex Mono', monospace; display: grid; place-items: center; min-height: 100vh; gap: 1.5rem; padding: 2rem; }
+  #hero { width: min(94vw, 72rem); height: min(80vh, 44rem); aspect-ratio: auto; border: 1px solid rgba(126,184,218,.25); }
+  p { max-width: 44rem; text-align: center; color: rgba(232,232,232,.6); font-size: .8125rem; line-height: 1.7; }
+  code { color: #B4D7E8; }
+</style>
+</head>
+<body>
+  <div id="hero"></div>
+  <p>Everything on: shimmer <code>frames</code>, WebGL <code>depth</code> parallax, glitch bursts,
+     particles, scanlines and HUD. All of it is optional — remove any key to switch a feature off.</p>
+
+  <script src="../dist/decrypt-reveal.js"></script>
+  <script>
+    DecryptReveal('#hero', {
+      images: {
+        base:      '../assets/demo/scene.webp',
+        broadcast: '../assets/demo/broadcast.webp',
+        frames:    ['../assets/demo/frame-1.webp', '../assets/demo/frame-2.webp'],
+        depth:     '../assets/demo/depth.png',
+        parallaxBase: '../assets/demo/portrait.webp'
+      },
+      hudLabel: 'SIGNAL_04',
+      accent: '#7EB8DA',
+      lensRadius: 0.24,
+      fullRadius: 0.80,
+      onDecrypt: function () { console.log('ACCESS GRANTED'); }
+    });
+  </script>
+</body>
+</html>

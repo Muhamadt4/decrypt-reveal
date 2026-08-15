@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decrypt Reveal — Minimal example</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../dist/decrypt-reveal.css">
+<style>
+  body { margin: 0; background: #001B2E; color: #E8E8E8;
+         font-family: 'IBM Plex Mono', monospace; display: grid; place-items: center; min-height: 100vh; gap: 1.5rem; padding: 2rem; }
+  #hero { width: min(90vw, 60rem); border: 1px solid rgba(126,184,218,.25); }
+  p { max-width: 40rem; text-align: center; color: rgba(232,232,232,.6); font-size: .8125rem; line-height: 1.7; }
+  code { color: #B4D7E8; }
+</style>
+</head>
+<body>
+  <!-- 1. one container -->
+  <div id="hero"></div>
+  <p>The smallest possible setup: just <code>base</code> + <code>broadcast</code> images.
+     Move your cursor to scan · hold to decrypt.</p>
+
+  <!-- 2. the library -->
+  <script src="../dist/decrypt-reveal.js"></script>
+  <!-- 3. one call -->
+  <script>
+    DecryptReveal('#hero', {
+      images: {
+        base:      '../assets/demo/scene.webp',
+        broadcast: '../assets/demo/broadcast.webp'
+      }
+    });
+  </script>
+</body>
+</html>

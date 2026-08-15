@@ -1,0 +1,633 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>The Decrypt Reveal — a visual workflow</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unica+One&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#001B2E; --void:#000C14; --deep:#020810;
+    --ink:#E8E8E8; --mute:rgba(232,232,232,.55);
+    --steel:#7EB8DA; --ice:#B4D7E8;
+    --line:rgba(126,184,218,.2);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{
+    background:var(--bg); color:var(--ink);
+    font-family:'IBM Plex Sans',system-ui,sans-serif; font-weight:300;
+    overflow-x:hidden;
+  }
+  ::selection{background:rgba(126,184,218,.3)}
+
+  .mono{font-family:'IBM Plex Mono',monospace}
+  .num{font-family:'IBM Plex Mono',monospace; color:var(--steel); font-size:12px; letter-spacing:.3em}
+  h1,h2{font-family:'Unica One',sans-serif; font-weight:400; letter-spacing:.06em; line-height:.95; text-transform:uppercase}
+  h2{font-size:clamp(26px,3.6vw,44px); margin:10px 0 14px}
+  p.lead{color:var(--mute); max-width:620px; font-size:15px; line-height:1.7}
+  section{max-width:1160px; margin:0 auto; padding:90px 24px 20px}
+  .divider{height:1px; max-width:1160px; margin:70px auto 0;
+    background:linear-gradient(90deg,transparent,rgba(126,184,218,.35) 20%,rgba(180,215,232,.5) 50%,rgba(126,184,218,.35) 80%,transparent)}
+  .tag{font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.2em; color:rgba(126,184,218,.7); text-transform:uppercase}
+  .frame{position:relative; border:1px solid var(--line); background:var(--void)}
+  .frame::before,.frame::after{content:""; position:absolute; width:16px; height:16px; z-index:5; pointer-events:none}
+  .frame::before{top:-1px; left:-1px; border-top:1px solid var(--steel); border-left:1px solid var(--steel)}
+  .frame::after{bottom:-1px; right:-1px; border-bottom:1px solid var(--steel); border-right:1px solid var(--steel)}
+
+  /* ═══ HERO: the live effect ═══ */
+  .hero{max-width:none; padding:0; position:relative}
+  #stage{
+    position:relative; width:100%; height:min(92vh,860px); overflow:hidden;
+    cursor:none; touch-action:none; background:var(--deep);
+  }
+  #stage img.lyr{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none}
+  #stage .base{z-index:1}
+  #ghost{z-index:2; opacity:0; mix-blend-mode:screen; filter:sepia(1) hue-rotate(180deg) saturate(5)}
+  #rev{z-index:3;
+    -webkit-mask-image:radial-gradient(circle at var(--mx,50%) var(--my,40%), #000 calc(var(--r,0px)*.42), transparent var(--r,0px));
+            mask-image:radial-gradient(circle at var(--mx,50%) var(--my,40%), #000 calc(var(--r,0px)*.42), transparent var(--r,0px));}
+  #scan{position:absolute; inset:0; z-index:4; pointer-events:none; mix-blend-mode:overlay;
+    background:repeating-linear-gradient(to bottom, rgba(255,255,255,.05) 0 1px, transparent 1px 3px);
+    -webkit-mask-image:radial-gradient(circle at var(--mx,50%) var(--my,40%), #000 calc(var(--r,0px)*.42), transparent var(--r,0px));
+            mask-image:radial-gradient(circle at var(--mx,50%) var(--my,40%), #000 calc(var(--r,0px)*.42), transparent var(--r,0px));}
+  #tear{position:absolute; inset:0; z-index:5; opacity:0; pointer-events:none; background-size:cover; filter:brightness(1.15)}
+  .heroshade{position:absolute; inset:0; z-index:6; pointer-events:none;
+    background:linear-gradient(to top, rgba(0,27,46,.94) 0%, rgba(0,27,46,.45) 26%, transparent 55%),
+               radial-gradient(ellipse at 50% 50%, transparent 40%, rgba(0,12,20,.55) 100%)}
+  #fx{position:absolute; inset:0; z-index:7; pointer-events:none; width:100%; height:100%}
+  .herocopy{position:absolute; left:clamp(20px,5vw,72px); bottom:clamp(26px,6vh,64px); z-index:8; pointer-events:none}
+  .herocopy h1{font-size:clamp(42px,7.2vw,104px); text-shadow:0 0 40px rgba(180,215,232,.25)}
+  .herocopy .sub{color:var(--mute); margin-top:10px; font-size:14px; max-width:460px; line-height:1.6}
+  .herohint{position:absolute; right:clamp(20px,4vw,60px); bottom:clamp(26px,6vh,60px); z-index:8;
+    font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.25em; color:var(--ice); opacity:.8; pointer-events:none; text-transform:uppercase}
+
+  /* ── site nav (added for the open-source build) ── */
+  nav.site{position:sticky; top:0; z-index:60; display:flex; align-items:center; justify-content:space-between;
+    gap:1rem; padding:14px clamp(20px,5vw,40px); background:rgba(0,12,20,.82);
+    -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
+    border-bottom:1px solid var(--line)}
+  nav.site .brand{font-family:'Unica One',sans-serif; letter-spacing:.1em; text-transform:uppercase; font-size:20px}
+  nav.site .brand b{color:var(--steel)}
+  nav.site .links{display:flex; gap:22px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase}
+  nav.site .links a{color:var(--mute); text-decoration:none; transition:color .15s}
+  nav.site .links a:hover{color:var(--ice)}
+  nav.site .links a.cta{color:var(--deep); background:var(--steel); padding:7px 14px; margin:-7px 0}
+  nav.site .links a.cta:hover{background:var(--ice)}
+  @media (max-width:640px){ nav.site .links a.plain{display:none} }
+  .herocta{display:flex; gap:14px; margin-top:22px; pointer-events:auto; flex-wrap:wrap}
+  .herocta a{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
+    padding:12px 20px; text-decoration:none; transition:.15s}
+  .herocta a.solid{background:var(--steel); color:var(--deep)}
+  .herocta a.solid:hover{background:var(--ice)}
+  .herocta a.outline{border:1px solid var(--steel); color:var(--ice)}
+  .herocta a.outline:hover{background:rgba(126,184,218,.14)}
+  .hudline{position:absolute; top:18px; left:clamp(20px,5vw,72px); z-index:8; pointer-events:none;
+    font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.22em; color:var(--mute); text-transform:uppercase}
+  .hudline b{color:var(--ice); font-weight:500}
+  #rec{position:absolute; top:18px; right:clamp(20px,4vw,60px); z-index:8; pointer-events:none;
+    font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:.22em; color:var(--mute)}
+  #rec i{display:inline-block; width:6px; height:6px; border-radius:50%; background:var(--mute); margin-right:6px; font-style:normal}
+  #stage.on #rec i{background:#C8532E; animation:blink 1s steps(2) infinite}
+  @keyframes blink{50%{opacity:.15}}
+
+  /* ═══ 01 slider ═══ */
+  .cmp{position:relative; aspect-ratio:16/9; overflow:hidden; cursor:ew-resize; touch-action:none; -webkit-user-select:none; user-select:none}
+  .cmp img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none}
+  .cmp .top{clip-path:inset(0 calc(100% - var(--x,50%)) 0 0)}
+  .cmp .bar{position:absolute; top:0; bottom:0; left:var(--x,50%); width:1px; background:var(--ice); z-index:3;
+    box-shadow:0 0 18px rgba(180,215,232,.6)}
+  .cmp .bar::after{content:"◂ ▸"; position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+    font-family:'IBM Plex Mono',monospace; font-size:10px; letter-spacing:2px; color:var(--void);
+    background:var(--ice); padding:5px 7px; white-space:nowrap}
+  .cmp .lbl{position:absolute; top:12px; z-index:2; font-family:'IBM Plex Mono',monospace; font-size:10px;
+    letter-spacing:.2em; color:var(--ice); background:rgba(0,12,20,.75); padding:5px 9px; pointer-events:none}
+  .cmp .lbl.l{left:12px} .cmp .lbl.r{right:12px}
+  .caption{margin-top:12px; font-size:12.5px; color:var(--mute); line-height:1.6}
+  .caption b{color:var(--ice); font-weight:500}
+
+  /* ═══ 02 exploded stack ═══ */
+  .stackwrap{display:grid; grid-template-columns:1.15fr .85fr; gap:40px; align-items:center}
+  .iso{height:560px; perspective:1400px; display:flex; align-items:center; justify-content:center}
+  .iso-inner{position:relative; width:340px; height:191px; transform-style:preserve-3d;
+    transform:rotateX(58deg) rotateZ(-40deg); }
+  .plane{position:absolute; inset:0; border:1px solid rgba(126,184,218,.35); background:var(--void);
+    transform:translateZ(calc(var(--i) * 34px)); transition:transform .35s ease, box-shadow .35s ease, border-color .35s;
+    overflow:hidden; backface-visibility:hidden}
+  .plane img{width:100%; height:100%; object-fit:cover; display:block}
+  .plane.hot{transform:translateZ(calc(var(--i) * 34px + 26px)); border-color:var(--ice);
+    box-shadow:0 0 34px rgba(180,215,232,.35)}
+  .p-ghost img{filter:sepia(1) hue-rotate(180deg) saturate(5); opacity:.65; clip-path:inset(34% 0 44% 0); transform:translateX(8px)}
+  .p-rev img{-webkit-mask-image:radial-gradient(circle at 58% 40%, #000 16%, transparent 42%);
+             mask-image:radial-gradient(circle at 58% 40%, #000 16%, transparent 42%)}
+  .p-scan{background:repeating-linear-gradient(to bottom, rgba(180,215,232,.16) 0 1px, transparent 1px 4px)}
+  .p-tear{background:var(--void)}
+  .p-tear img{clip-path:inset(46% 0 47% 0); transform:translateX(-10px); filter:brightness(1.3)}
+  .p-vig{background:radial-gradient(ellipse at 50% 45%, transparent 35%, rgba(0,8,16,.92) 100%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9'/%3E%3C/filter%3E%3Crect width='90' height='90' filter='url(%23n)' opacity='.35'/%3E%3C/svg%3E")}
+  .p-fx{background:
+    radial-gradient(circle 1.5px at 22% 30%, #fff 98%, transparent), radial-gradient(circle 1px at 70% 60%, #fff 98%, transparent),
+    radial-gradient(circle 1px at 44% 76%, #fff 98%, transparent), radial-gradient(circle 1.5px at 84% 24%, #fff 98%, transparent),
+    radial-gradient(circle 1px at 12% 66%, #fff 98%, transparent), var(--void)}
+  .p-fx::after{content:""; position:absolute; left:48%; top:26%; width:44%; height:44%; border:1px dashed rgba(255,255,255,.5); border-radius:50%}
+  .p-hud{background:var(--void)}
+  .p-hud span{position:absolute; font-family:'IBM Plex Mono',monospace; font-size:7px; letter-spacing:.15em; color:var(--ice)}
+  .p-hud .a{top:8px; left:10px} .p-hud .b{top:8px; right:10px} .p-hud .c{bottom:8px; left:10px} .p-hud .d{bottom:8px; right:10px}
+  .legend{display:flex; flex-direction:column; gap:2px}
+  .legend button{all:unset; cursor:pointer; display:grid; grid-template-columns:44px 110px 1fr; gap:14px; align-items:baseline;
+    padding:11px 14px; border-left:1px solid transparent; transition:background .25s, border-color .25s}
+  .legend button:hover,.legend button.hot{background:rgba(126,184,218,.07); border-left-color:var(--ice)}
+  .legend .z{font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--steel); letter-spacing:.12em}
+  .legend .n{font-family:'IBM Plex Mono',monospace; font-size:11px; color:var(--ink); letter-spacing:.14em; text-transform:uppercase}
+  .legend .d{font-size:12px; color:var(--mute); line-height:1.5}
+
+  /* ═══ 03 pipeline ═══ */
+  .pipe{display:grid; grid-template-columns:repeat(4, 1fr); gap:26px; align-items:start; margin-top:34px}
+  .node{text-align:left}
+  .node .frame{aspect-ratio:16/10; overflow:hidden}
+  .node .frame.tall{aspect-ratio:4/4.4}
+  .node img{width:100%; height:100%; object-fit:cover; display:block}
+  .node .split{display:grid; grid-template-columns:1fr 1fr; gap:2px; height:100%}
+  .node h3{font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.18em; margin:12px 0 6px; color:var(--ice); text-transform:uppercase}
+  .node p{font-size:12px; color:var(--mute); line-height:1.55}
+  .arrowrow{display:grid; grid-template-columns:repeat(4,1fr); max-width:1160px; margin:6px auto 0; padding:0 24px}
+  .flow{font-family:'IBM Plex Mono',monospace; color:var(--steel); font-size:11px; letter-spacing:.2em; margin-top:22px; opacity:.8}
+
+  /* ═══ 04 shimmer ═══ */
+  .shim{display:grid; grid-template-columns:minmax(240px,340px) 1fr; gap:44px; align-items:center}
+  .flip{position:relative; aspect-ratio:700/846; overflow:hidden}
+  .flip img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; opacity:0}
+  .flip img.show{opacity:1}
+  .thumbrow{display:grid; grid-template-columns:repeat(3,1fr); gap:14px; margin-top:22px}
+  .thumbrow .frame{aspect-ratio:700/846; overflow:hidden}
+  .thumbrow img{width:100%; height:100%; object-fit:cover; filter:brightness(.9)}
+  .thumbrow .tag{display:block; margin-top:8px}
+
+  /* ═══ 05 parallax ═══ */
+  .par{display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:center}
+  .parstage{position:relative; aspect-ratio:928/1121; max-height:520px; margin:0 auto; width:auto; overflow:hidden}
+  .parstage canvas,.parstage img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
+  .parstage canvas{display:none}
+  .depthbox{display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:20px}
+  .depthbox .frame{aspect-ratio:928/1121; overflow:hidden}
+  .depthbox img{width:100%; height:100%; object-fit:cover}
+  code.glsl{display:block; font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.75; color:var(--ice);
+    background:rgba(0,12,22,.9); border:1px solid var(--line); padding:18px 20px; overflow-x:auto; white-space:pre; margin-top:18px}
+  code.glsl .c{color:rgba(232,232,232,.35)}
+
+  /* ═══ 06 bugs ═══ */
+  .bugs{display:grid; grid-template-columns:repeat(2,1fr); gap:2px; margin-top:30px}
+  .bug{background:rgba(0,20,35,.75); border:1px solid var(--line); padding:24px 26px}
+  .bug h3{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.16em; color:#FF6E96; margin-bottom:10px; text-transform:uppercase}
+  .bug p{font-size:12.5px; color:var(--mute); line-height:1.65}
+  .bug p b{color:var(--ink); font-weight:500}
+
+  /* ═══ 07 build order ═══ */
+  .steps{margin-top:26px; border-top:1px solid var(--line)}
+  .step{display:grid; grid-template-columns:60px 240px 1fr; gap:20px; padding:16px 4px; border-bottom:1px solid var(--line); align-items:baseline}
+  .step .num{font-size:13px}
+  .step .t{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.14em; text-transform:uppercase}
+  .step .d{font-size:12.5px; color:var(--mute); line-height:1.55}
+  footer{max-width:1160px; margin:0 auto; padding:60px 24px 70px; color:var(--mute); font-size:12px; line-height:1.7}
+  footer b{color:var(--ice); font-weight:500}
+
+  @media (max-width:900px){
+    .stackwrap,.shim,.par{grid-template-columns:1fr}
+    .iso{height:420px} .iso-inner{width:250px; height:141px}
+    .plane{transform:translateZ(calc(var(--i) * 26px))}
+    .plane.hot{transform:translateZ(calc(var(--i) * 26px + 20px))}
+    .pipe{grid-template-columns:1fr 1fr}
+    .bugs{grid-template-columns:1fr}
+    .step{grid-template-columns:44px 1fr; }
+    .step .d{grid-column:2}
+  }
+  @media (prefers-reduced-motion: reduce){
+    #stage{cursor:default}
+  }
+</style>
+</head>
+<body>
+
+<nav class="site">
+  <div class="brand">Decrypt<b>Reveal</b></div>
+  <div class="links">
+    <a class="plain" href="#01">How it works</a>
+    <a class="plain" href="DOCS.md">Implement</a>
+    <a class="plain" href="WORKFLOW.md">Asset guide</a>
+    <a class="cta" href="playground.html">Playground →</a>
+  </div>
+</nav>
+
+<!-- ═══════════ HERO — the effect, live ═══════════ -->
+<section class="hero">
+  <div id="stage">
+    <img class="lyr base" data-img="L1" alt="layer 1 — the scene">
+    <div id="ghost"><img class="lyr" data-img="L2" alt="" style="position:absolute;inset:0;width:100%;height:100%;object-fit:cover"></div>
+    <img class="lyr" id="rev" data-img="L2" alt="layer 2 — the broadcast">
+    <div id="scan"></div>
+    <div id="tear"></div>
+    <div class="heroshade"></div>
+    <canvas id="fx"></canvas>
+    <div class="hudline">SIGNAL_04 / <b id="fname">SCENE.RAW</b></div>
+    <div id="rec"><i></i><span>STANDBY</span></div>
+    <div class="herocopy">
+      <div class="num">AN OPEN WORKFLOW</div>
+      <h1>The Decrypt<br>Reveal</h1>
+      <p class="sub">One photo becomes a scene that hides a second, corrupted truth. This is a free, open workflow — generate your own images with any AI tool, drop in a zero-dependency script, and ship it. Everything below explains the trick; you're touching it right now.</p>
+      <div class="herocta">
+        <a class="solid" href="playground.html">Try the playground</a>
+        <a class="outline" href="#01">See how it works</a>
+      </div>
+    </div>
+    <div class="herohint" id="hint">MOVE TO SCAN · HOLD TO DECRYPT</div>
+  </div>
+</section>
+
+<!-- ═══════════ 01 — the illusion ═══════════ -->
+<div class="divider"></div>
+<section id="01">
+  <div class="num">01 — THE ILLUSION</div>
+  <h2>Two images. One lie.</h2>
+  <p class="lead">There is no shader magic in the reveal itself. It's two images of the same scene, generated to be pixel-aligned, stacked on top of each other. A CSS <span class="mono" style="color:var(--ice)">mask-image</span> radial gradient cuts a soft hole in the top one, and JavaScript lerps that hole toward your cursor. Alignment is the entire illusion — drag the handle and watch every object hold its position while the world changes.</p>
+  <div class="cmp frame" id="cmp" style="margin-top:34px">
+    <img data-img="L1" alt="photoreal layer">
+    <img class="top" data-img="L2" alt="broadcast layer">
+    <div class="bar"></div>
+    <div class="lbl l">LAYER 2 — BROADCAST</div>
+    <div class="lbl r">LAYER 1 — SCENE</div>
+  </div>
+  <p class="caption">Layer 2 is generated <b>from</b> layer 1 (image-to-image, strength ~0.6) with a prompt that opens with a "layout law": <b>the output must be pixel-identical in composition</b>. Every ordinary object was seeded into layer 1 on purpose, so it has a secret to become — notes turn to ciphertext, windows grow targeting brackets, the router becomes blinking data nodes.</p>
+</section>
+
+<!-- ═══════════ 02 — the stack ═══════════ -->
+<div class="divider"></div>
+<section>
+  <div class="num">02 — THE STACK</div>
+  <h2>Nine layers, one frame</h2>
+  <p class="lead">Everything above the base is compositor-cheap garnish: only <span class="mono" style="color:var(--ice)">opacity</span>, <span class="mono" style="color:var(--ice)">transform</span>, <span class="mono" style="color:var(--ice)">clip-path</span> and the mask variables ever animate, so the whole thing runs smoothly on a phone. Hover the legend.</p>
+  <div class="stackwrap">
+    <div class="iso"><div class="iso-inner" id="iso">
+      <div class="plane" style="--i:0"><img data-img="L1" alt=""></div>
+      <div class="plane p-ghost" style="--i:1"><img data-img="L2" alt=""></div>
+      <div class="plane p-rev" style="--i:2"><img data-img="L2" alt=""></div>
+      <div class="plane p-scan" style="--i:3"></div>
+      <div class="plane p-tear" style="--i:4"><img data-img="L2" alt=""></div>
+      <div class="plane p-vig" style="--i:5"></div>
+      <div class="plane p-fx" style="--i:6"></div>
+      <div class="plane p-hud" style="--i:7"><span class="a">SUBJECT_01</span><span class="b">● REC</span><span class="c">X 0.482</span><span class="d">DECRYPTING ▓▓░ 64%</span></div>
+    </div></div>
+    <div class="legend" id="legend">
+      <button data-i="0"><span class="z">z1</span><span class="n">Base photo</span><span class="d">the photoreal scene — or a WebGL canvas rendering it with depth parallax</span></button>
+      <button data-i="1"><span class="z">z2</span><span class="n">Ghosts</span><span class="d">tinted copies of layer 2, flashed in bursts with random clip-path slices</span></button>
+      <button data-i="2"><span class="z">z3</span><span class="n">Reveal frames</span><span class="d">2–3 variants of the broadcast image behind the cursor-following mask</span></button>
+      <button data-i="3"><span class="z">z4</span><span class="n">Scanlines</span><span class="d">a repeating-linear-gradient, masked identically to the reveal</span></button>
+      <button data-i="4"><span class="z">z5</span><span class="n">Tear</span><span class="d">a full-width strip of layer 2, flashed for ~80ms during bursts</span></button>
+      <button data-i="5"><span class="z">z6–7</span><span class="n">Vignette + grain</span><span class="d">radial darkening and SVG turbulence noise, jittered with steps()</span></button>
+      <button data-i="6"><span class="z">z8</span><span class="n">Particle canvas</span><span class="d">2D canvas: rim particles, drifting dust, the dotted reticle cursor</span></button>
+      <button data-i="7"><span class="z">z10</span><span class="n">HUD</span><span class="d">mono-font broadcast chrome: REC, coords, the DECRYPTING readout</span></button>
+    </div>
+  </div>
+  <p class="caption" style="margin-top:8px">Explicit <b>z-index on every layer</b> is not optional — see bug 01 below.</p>
+</section>
+
+<!-- ═══════════ 03 — the pipeline ═══════════ -->
+<div class="divider"></div>
+<section>
+  <div class="num">03 — THE PIPELINE</div>
+  <h2>Every asset is born from the last</h2>
+  <p class="lead">The rule that holds the whole thing together: each derived asset is generated from the <em>locked previous stage</em>, never from the original photo. Regenerate a stage and everything downstream must be regenerated too — so iterate each stage until you love it before spending a single run on the next.</p>
+  <div class="pipe">
+    <div class="node">
+      <div class="frame tall"><img data-img="A" alt="the source portrait"></div>
+      <h3>0 · Your photo</h3>
+      <p>One portrait. Passed only as the identity reference for stage 1 — nothing downstream ever sees it again.</p>
+    </div>
+    <div class="node">
+      <div class="frame"><img data-img="L1" alt="layer 1"></div>
+      <h3>1 · The scene</h3>
+      <p>Text-to-image, ultra-wide lens, chiaroscuro in your site's palette — and deliberately seeded with "secret" objects. Demand grime: AI defaults to showroom polish.</p>
+    </div>
+    <div class="node">
+      <div class="frame"><img data-img="L2" alt="layer 2"></div>
+      <h3>2 · The broadcast</h3>
+      <p>Image-to-image from the locked scene + a style reference. Prompt opens with the layout law; bans glow; describes terminal <em>structure</em>, never skulls.</p>
+    </div>
+    <div class="node">
+      <div class="frame"><div class="split">
+        <img data-img="F1" alt="variant frame"><img data-img="D" alt="depth map">
+      </div></div>
+      <h3>3 · Variants + depth</h3>
+      <p>Re-dither the broadcast for shimmer frames (or animate it with video gen). Feed the <em>scene</em> to a depth estimator for the parallax map.</p>
+    </div>
+  </div>
+  <div class="flow">PHOTO&nbsp;&nbsp;──▸&nbsp;&nbsp;SCENE&nbsp;&nbsp;──▸&nbsp;&nbsp;BROADCAST&nbsp;&nbsp;──▸&nbsp;&nbsp;VARIANTS&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;SCENE&nbsp;&nbsp;──▸&nbsp;&nbsp;DEPTH MAP</div>
+</section>
+
+<!-- ═══════════ 04 — the shimmer ═══════════ -->
+<div class="divider"></div>
+<section>
+  <div class="num">04 — THE SHIMMER</div>
+  <h2>The dots must live</h2>
+  <p class="lead">A static glitch image reads as a filter. The fix costs two extra generations: ask the model to regenerate the broadcast "as the next frame of the same transmission" — identical composition, re-rolled dot pattern, new tear positions. Flipping opacity between the frames makes the dots crawl like a CRT re-dithering. This demo is doing it right now, from the portrait run of this workflow.</p>
+  <div class="shim" style="margin-top:34px">
+    <div class="flip frame" id="flip">
+      <img data-img="F0" class="show" alt="frame 0">
+      <img data-img="F1" alt="frame 1">
+      <img data-img="F2" alt="frame 2">
+    </div>
+    <div>
+      <div class="thumbrow">
+        <div><div class="frame"><img data-img="F0" alt=""></div><span class="tag">FRAME 0 — BASE</span></div>
+        <div><div class="frame"><img data-img="F1" alt=""></div><span class="tag">FRAME 1 — RE-DITHERED</span></div>
+        <div><div class="frame"><img data-img="F2" alt=""></div><span class="tag">FRAME 2 — RE-DITHERED</span></div>
+      </div>
+      <p class="caption" style="margin-top:18px">Verify alignment before accepting a variant: blend it with the base at 50% opacity — you should see <b>one clean image</b> with only the tears ghosted. Double edges mean it drifted; re-roll. In the demo: slow flicks while idle, rapid ~60ms flips during glitch bursts, and the terminal text "scrolls" between frames so the flicker reads as a live session.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 05 — fake 3D ═══════════ -->
+<div class="divider"></div>
+<section>
+  <div class="num">05 — FAKE 3D</div>
+  <h2>Depth from a single photo</h2>
+  <p class="lead">Feed the scene to a free depth estimator (Depth Anything, MiDaS), get a grayscale map — bright is near. A ~60-line WebGL shader offsets the photo's UVs by depth × cursor offset, and the subject genuinely shifts against the background. Move your cursor over this portrait.</p>
+  <div class="par" style="margin-top:34px">
+    <div>
+      <div class="parstage frame" id="parstage">
+        <img id="parfallback" data-img="A" alt="portrait">
+        <canvas id="pargl"></canvas>
+      </div>
+    </div>
+    <div>
+      <div class="depthbox">
+        <div><div class="frame"><img data-img="A" alt="photo"></div><span class="tag" style="display:block;margin-top:8px">INPUT — PHOTO</span></div>
+        <div><div class="frame"><img data-img="D" alt="depth map"></div><span class="tag" style="display:block;margin-top:8px">OUTPUT — DEPTH (BRIGHT = NEAR)</span></div>
+      </div>
+<code class="glsl">float d  = texture2D(uD, v).r;              <span class="c">// depth</span>
+float gx = dD/dx, gy = dD/dy;               <span class="c">// depth gradient</span>
+float edge = clamp(1. - 5.*length(vec2(gx,gy)), 0., 1.);
+vec2 off = uO * (d - .5) * edge;            <span class="c">// near moves more…</span>
+gl_FragColor = texture2D(uT, v + off);      <span class="c">// …silhouettes stay pinned</span></code>
+      <p class="caption">The <b>edge</b> term is the difference between magic and mess: without it, depth boundaries smear background pixels across silhouettes in ugly streaks. It zeroes the offset wherever the depth gradient is steep.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ═══════════ 06 — the bugs ═══════════ -->
+<div class="divider"></div>
+<section>
+  <div class="num">06 — THE BUGS YOU WILL HIT</div>
+  <h2>We hit them so you don't</h2>
+  <div class="bugs">
+    <div class="bug"><h3>01 · Compositor stacking</h3>
+      <p>An accelerated WebGL canvas can paint <b>above</b> later masked siblings in Chromium, regardless of DOM order. Symptom: "the reveal stopped working" while the ring and particles still draw — it's rendering underneath the canvas. Fix: <b>explicit z-index on every layer.</b></p></div>
+    <div class="bug"><h3>02 · Temporal dead zone</h3>
+      <p>If your resize handler touches GL state, the initial <b>resize() call must run after</b> the <span class="mono">let gl</span> declarations execute — hoisted functions can reach a <span class="mono">let</span> before it initializes. Symptom: <span class="mono">Cannot access 'gl' before initialization</span> and a dead page.</p></div>
+    <div class="bug"><h3>03 · Opaque canvas flash</h3>
+      <p>A WebGL canvas with <span class="mono">alpha:false</span> composites as <b>solid black before anything is drawn</b> — covering your fallback image, permanently if the shader fails. Keep it <span class="mono">display:none</span> until textures are loaded and the first frame is safe.</p></div>
+    <div class="bug"><h3>04 · GL killing the loop</h3>
+      <p>Wrap the GL draw in <b>try/catch inside your rAF</b>. A lost context should quietly degrade the parallax — not freeze the lens, the particles, the HUD, and everything else living in the same loop.</p></div>
+  </div>
+</section>
+
+<!-- ═══════════ 07 — build order ═══════════ -->
+<div class="divider"></div>
+<section>
+  <div class="num">07 — BUILD ORDER</div>
+  <h2>Every step ships</h2>
+  <p class="lead">Ordered by wow-per-effort. Stop wherever the ratio stops making sense — step 3 alone is already a hero people will screenshot.</p>
+  <div class="steps">
+    <div class="step"><span class="num">01</span><span class="t">Lock layer 1</span><span class="d">iterate the scene until you love it — everything downstream inherits it</span></div>
+    <div class="step"><span class="num">02</span><span class="t">Lock layer 2</span><span class="d">generate from layer 1 + style ref; fix screens with targeted single-edit prompts</span></div>
+    <div class="step"><span class="num">03</span><span class="t">Static lens demo</span><span class="d">two stacked images, the masked lens, hold-to-decrypt — ship-able on its own</span></div>
+    <div class="step"><span class="num">04</span><span class="t">Garnish</span><span class="d">bursts, ghosts, tear, scanlines, grain, HUD, particle canvas</span></div>
+    <div class="step"><span class="num">05</span><span class="t">Shimmer</span><span class="d">variant frames (or video gen → extracted frames), opacity-flipped</span></div>
+    <div class="step"><span class="num">06</span><span class="t">Depth parallax</span><span class="d">depth map + the edge-aware shader on the base photo</span></div>
+    <div class="step"><span class="num">07</span><span class="t">Guardrails</span><span class="d">reduced-motion fallback, WebGL fallback, DPR cap, pause off-screen</span></div>
+  </div>
+</section>
+
+<footer>
+  <b>The one transferable lesson:</b> lock composition first. The "layout law" prompt opening plus a 50%-blend verification is what makes two AI generations behave like one photograph — and that alignment is the entire illusion. Everything else is garnish.
+</footer>
+
+<script>
+const IMGS = {
+  L1: 'assets/demo/scene.webp',
+  L2: 'assets/demo/broadcast.webp',
+  F0: 'assets/demo/frame-0.webp',
+  F1: 'assets/demo/frame-1.webp',
+  F2: 'assets/demo/frame-2.webp',
+  A:  'assets/demo/portrait.webp',
+  D:  'assets/demo/depth.png'
+};
+
+for (const el of document.querySelectorAll('[data-img]')) el.src = IMGS[el.dataset.img];
+</script>
+<script>
+(() => {
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const lerp = (a, b, k) => a + (b - a) * k;
+
+  /* ── HERO lens ─────────────────────────────────────── */
+  try {
+    const stage = document.getElementById('stage');
+    const rev = document.getElementById('rev'), scan = document.getElementById('scan');
+    const ghost = document.getElementById('ghost'), tear = document.getElementById('tear');
+    const fx = document.getElementById('fx'), ctx = fx.getContext('2d');
+    const recEl = document.querySelector('#rec span'), fname = document.getElementById('fname');
+    tear.style.backgroundImage = `url(${IMGS.L2})`;
+    let W = 0, H = 0, vis = true;
+    const S = { px:.5, py:.42, lx:.5, ly:.42, r:0, tR:0, over:false, hold:false, intro:true };
+    const BASE = () => Math.min(W, 1400) * .24, FULL = () => Math.hypot(W, H) * .8;
+    const rs = () => { const b = stage.getBoundingClientRect(); W = b.width; H = b.height;
+      const d = Math.min(devicePixelRatio || 1, 2); fx.width = W*d; fx.height = H*d;
+      ctx.setTransform(d,0,0,d,0,0); };
+    rs(); addEventListener('resize', rs);
+    new IntersectionObserver(e => vis = e[0].isIntersecting).observe(stage);
+
+    const setP = e => { const b = stage.getBoundingClientRect();
+      S.px = (e.clientX - b.left)/b.width; S.py = (e.clientY - b.top)/b.height; };
+    stage.addEventListener('pointerenter', e => { setP(e); if (S.intro) return;
+      S.lx = S.px; S.ly = S.py; S.over = true; S.tR = BASE(); stage.classList.add('on'); recEl.textContent = 'REC'; });
+    stage.addEventListener('pointermove', e => { setP(e); if (S.intro){ S.intro = false; S.over = true; S.tR = BASE(); stage.classList.add('on'); recEl.textContent = 'REC'; } });
+    stage.addEventListener('pointerleave', () => { S.over = false; S.hold = false; S.tR = 0;
+      stage.classList.remove('on'); recEl.textContent = 'STANDBY'; });
+    stage.addEventListener('pointerdown', e => { setP(e); S.intro = false; S.over = true; S.hold = true; S.tR = FULL();
+      stage.classList.add('on'); recEl.textContent = 'REC'; burst(performance.now(), true); });
+    addEventListener('pointerup', () => { S.hold = false; S.tR = S.over ? BASE() : 0; });
+
+    let burstUntil = 0, nextG = performance.now() + 1400, nextFlick = 0;
+    function burst(t, big){
+      burstUntil = t + (big ? 200 : 90 + Math.random()*80);
+      if (big || Math.random() < .35){
+        const y = 10 + Math.random()*78, h = 2 + Math.random()*4;
+        tear.style.clipPath = `inset(${y}% 0 ${100-y-h}% 0)`;
+        tear.style.opacity = .9;
+        tear.style.transform = `translateX(${(Math.random()-.5)*22}px)`;
+        setTimeout(() => tear.style.opacity = 0, 70 + Math.random()*50);
+      }
+    }
+    const parts = [];
+    const intro = { t0: performance.now() + 600, dur: 2300 };
+    let last = performance.now();
+    function frame(t){
+      requestAnimationFrame(frame);
+      if (!vis && !S.intro) return;
+      const dt = Math.min(.05, (t - last)/1000); last = t;
+      if (reduced){ rev.style.maskImage = 'none'; rev.style.webkitMaskImage = 'none'; return; }
+      if (S.intro){
+        const k = (t - intro.t0)/intro.dur;
+        if (k >= 1){ S.intro = false; S.tR = 0; }
+        else if (k > 0){
+          const e = Math.sin(Math.min(1,k)*Math.PI);
+          S.px = .5 + Math.sin(k*2.4)*.06; S.py = .3 + k*.14; S.tR = BASE()*e;
+          if (k < .05){ S.lx = S.px; S.ly = S.py; }
+        }
+      }
+      S.lx = lerp(S.lx, S.px, 1 - Math.pow(1-.13, dt*60));
+      S.ly = lerp(S.ly, S.py, 1 - Math.pow(1-.13, dt*60));
+      const breath = (S.over && !S.hold) ? Math.sin(t/620)*W*.005 : 0;
+      S.r = lerp(S.r, S.tR + breath, 1 - Math.pow(1-.085, dt*60));
+      const mx = (S.lx*100).toFixed(2)+'%', my = (S.ly*100).toFixed(2)+'%', r = Math.max(0,S.r).toFixed(1)+'px';
+      for (const el of [rev, scan, ghost]){ el.style.setProperty('--mx',mx); el.style.setProperty('--my',my); el.style.setProperty('--r',r); }
+      ghost.style.maskImage = ghost.style.webkitMaskImage = getComputedStyle(rev).maskImage;
+      const active = t < burstUntil && S.over;
+      if (active){
+        const y = Math.random()*86, h = 3+Math.random()*9;
+        ghost.style.clipPath = `inset(${y}% 0 ${Math.max(0,100-y-h)}% 0)`;
+        ghost.style.transform = `translateX(${(Math.random()-.5)*16}px)`;
+        ghost.style.opacity = .3 + Math.random()*.35;
+      } else if (ghost.style.opacity !== '0') ghost.style.opacity = 0;
+      if (S.over && t > nextG){ burst(t,false); nextG = t + 800 + Math.random()*1800; }
+      if (S.over && t > nextFlick){ fname.textContent = Math.random()<.5 ? 'BROADCAST.BIN' : 'SCENE.RAW'; nextFlick = t + 600 + Math.random()*1400; }
+      /* particles */
+      ctx.clearRect(0,0,W,H);
+      const cx = S.lx*W, cy = S.ly*H;
+      if (S.over && S.r > 8 && S.r*.9 < Math.hypot(W,H)*.5 && parts.length < 180)
+        for (let i = 0; i < (S.hold?8:3); i++){
+          const a = Math.random()*Math.PI*2, rr = S.r*(.9+Math.random()*.14);
+          parts.push({ x:cx+Math.cos(a)*rr, y:cy+Math.sin(a)*rr,
+            vx:Math.cos(a)*30+(Math.random()-.5)*20, vy:Math.sin(a)*30+(Math.random()-.5)*20,
+            l:0, m:.5+Math.random()*.7, s:Math.random()<.75?1.4:2.2 });
+        }
+      ctx.fillStyle = '#DCEBF5';
+      for (let i = parts.length-1; i >= 0; i--){ const p = parts[i]; p.l += dt;
+        if (p.l > p.m){ parts.splice(i,1); continue; }
+        p.x += p.vx*dt; p.y += p.vy*dt; p.vx *= .985; p.vy *= .985;
+        ctx.globalAlpha = (1-p.l/p.m)*.8; ctx.fillRect(p.x,p.y,p.s,p.s); }
+      if (S.r > 8 && S.r*.9 < Math.hypot(W,H)*.5 && (S.over || S.intro)){
+        ctx.globalAlpha = .3; ctx.strokeStyle = '#DCEBF5'; ctx.setLineDash([2,5]);
+        ctx.beginPath(); ctx.arc(cx,cy,S.r*.9,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]); }
+      if (S.over){ const x = S.px*W, y = S.py*H;
+        ctx.globalAlpha = .9; ctx.strokeStyle = '#E8E8E8'; ctx.setLineDash([2,3]);
+        ctx.beginPath(); ctx.arc(x,y,10,0,Math.PI*2); ctx.stroke(); ctx.setLineDash([]);
+        ctx.beginPath(); ctx.moveTo(x-15,y); ctx.lineTo(x-11,y); ctx.moveTo(x+11,y); ctx.lineTo(x+15,y);
+        ctx.moveTo(x,y-15); ctx.lineTo(x,y-11); ctx.moveTo(x,y+11); ctx.lineTo(x,y+15); ctx.stroke(); }
+      ctx.globalAlpha = 1;
+    }
+    requestAnimationFrame(frame);
+  } catch(e){ console.error('hero:', e); }
+
+  /* ── 01 comparison slider ──────────────────────────── */
+  try {
+    const cmp = document.getElementById('cmp');
+    let drag = false;
+    const set = e => { const b = cmp.getBoundingClientRect();
+      const x = Math.max(2, Math.min(98, (e.clientX - b.left)/b.width*100));
+      cmp.style.setProperty('--x', x.toFixed(2)+'%'); };
+    cmp.addEventListener('pointerdown', e => { drag = true; cmp.setPointerCapture(e.pointerId); set(e); });
+    cmp.addEventListener('pointermove', e => drag && set(e));
+    addEventListener('pointerup', () => drag = false);
+  } catch(e){ console.error('cmp:', e); }
+
+  /* ── 02 stack hover ────────────────────────────────── */
+  try {
+    const planes = [...document.querySelectorAll('#iso .plane')];
+    const btns = [...document.querySelectorAll('#legend button')];
+    const hot = i => { planes.forEach((p,j) => p.classList.toggle('hot', j === i));
+                       btns.forEach((b,j) => b.classList.toggle('hot', j === i)); };
+    btns.forEach(b => { b.addEventListener('pointerenter', () => hot(+b.dataset.i));
+                        b.addEventListener('focus', () => hot(+b.dataset.i)); });
+    document.getElementById('legend').addEventListener('pointerleave', () => hot(-1));
+  } catch(e){ console.error('stack:', e); }
+
+  /* ── 04 shimmer flip ───────────────────────────────── */
+  try {
+    if (!reduced){
+      const imgs = [...document.querySelectorAll('#flip img')];
+      let cur = 0;
+      const flip = () => {
+        const burst = Math.random() < .25;
+        const next = (cur + 1 + (Math.random()*2|0)) % imgs.length;
+        imgs[cur].classList.remove('show'); imgs[next].classList.add('show'); cur = next;
+        setTimeout(flip, burst ? 70 + Math.random()*80 : 500 + Math.random()*900);
+      };
+      setTimeout(flip, 900);
+    }
+  } catch(e){ console.error('flip:', e); }
+
+  /* ── 05 parallax demo ──────────────────────────────── */
+  try {
+    const stage = document.getElementById('parstage');
+    const cv = document.getElementById('pargl'), fb = document.getElementById('parfallback');
+    const gl = cv.getContext('webgl', { antialias:false, alpha:false });
+    if (gl && !reduced){
+      const sh = (t,s) => { const o = gl.createShader(t); gl.shaderSource(o,s); gl.compileShader(o);
+        return gl.getShaderParameter(o, gl.COMPILE_STATUS) ? o : null; };
+      const vs = sh(gl.VERTEX_SHADER, 'attribute vec2 a;varying vec2 v;void main(){v=vec2(a.x,1.-a.y);gl_Position=vec4(a*2.-1.,0.,1.);}');
+      const fs = sh(gl.FRAGMENT_SHADER,
+        'precision mediump float;varying vec2 v;uniform sampler2D uT,uD;uniform vec2 uO;void main(){'+
+        'float d=texture2D(uD,v).r;float e=.012;'+
+        'float gx=texture2D(uD,v+vec2(e,0.)).r-texture2D(uD,v-vec2(e,0.)).r;'+
+        'float gy=texture2D(uD,v+vec2(0.,e)).r-texture2D(uD,v-vec2(0.,e)).r;'+
+        'float ed=clamp(1.-5.*length(vec2(gx,gy)),0.,1.);'+
+        'gl_FragColor=vec4(texture2D(uT,v+uO*(d-.5)*ed).rgb,1.);}');
+      if (vs && fs){
+        const pr = gl.createProgram(); gl.attachShader(pr,vs); gl.attachShader(pr,fs);
+        gl.linkProgram(pr); gl.useProgram(pr);
+        const buf = gl.createBuffer(); gl.bindBuffer(gl.ARRAY_BUFFER, buf);
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([0,0,1,0,0,1,1,1]), gl.STATIC_DRAW);
+        const loc = gl.getAttribLocation(pr,'a'); gl.enableVertexAttribArray(loc);
+        gl.vertexAttribPointer(loc,2,gl.FLOAT,false,0,0);
+        gl.uniform1i(gl.getUniformLocation(pr,'uT'),0); gl.uniform1i(gl.getUniformLocation(pr,'uD'),1);
+        const uO = gl.getUniformLocation(pr,'uO');
+        const mk = (u,img) => { gl.activeTexture(gl.TEXTURE0+u); gl.bindTexture(gl.TEXTURE_2D, gl.createTexture());
+          gl.texImage2D(gl.TEXTURE_2D,0,gl.RGBA,gl.RGBA,gl.UNSIGNED_BYTE,img);
+          for (const p of [gl.TEXTURE_WRAP_S, gl.TEXTURE_WRAP_T]) gl.texParameteri(gl.TEXTURE_2D,p,gl.CLAMP_TO_EDGE);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MIN_FILTER,gl.LINEAR);
+          gl.texParameteri(gl.TEXTURE_2D,gl.TEXTURE_MAG_FILTER,gl.LINEAR); };
+        const dep = new Image(); let n = 0, ready = false, vis = true;
+        const arm = () => { if (++n < 2) return;
+          mk(0, fb); mk(1, dep);
+          const b = stage.getBoundingClientRect(), d = Math.min(devicePixelRatio||1,2);
+          cv.width = b.width*d; cv.height = b.height*d; gl.viewport(0,0,cv.width,cv.height);
+          cv.style.display = 'block'; ready = true; };
+        if (fb.complete) arm(); else fb.onload = arm;
+        dep.onload = arm; dep.src = IMGS.D;
+        new IntersectionObserver(e => vis = e[0].isIntersecting).observe(stage);
+        const P = { tx:0, ty:0, x:0, y:0 };
+        addEventListener('pointermove', e => { const b = stage.getBoundingClientRect();
+          P.tx = Math.max(-1, Math.min(1, (e.clientX-(b.left+b.width/2))/(b.width*.9)));
+          P.ty = Math.max(-1, Math.min(1, (e.clientY-(b.top+b.height/2))/(b.height*.9))); });
+        let last = performance.now();
+        (function draw(t){
+          requestAnimationFrame(draw);
+          if (!ready || !vis) return;
+          const dt = Math.min(.05,(t-last)/1000); last = t;
+          P.x = lerp(P.x, P.tx, 1-Math.pow(1-.06, dt*60));
+          P.y = lerp(P.y, P.ty, 1-Math.pow(1-.06, dt*60));
+          try {
+            gl.uniform2f(uO, (P.x+Math.sin(t*.00035)*.08)*.02, (P.y+Math.cos(t*.00028)*.07)*.014);
+            gl.drawArrays(gl.TRIANGLE_STRIP,0,4);
+          } catch(e){ ready = false; }
+        })(performance.now());
+      }
+    }
+  } catch(e){ console.error('parallax:', e); }
+})();
+</script>
+</body>
+</html>
