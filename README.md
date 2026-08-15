@@ -8,7 +8,7 @@ Inspired by the Watch Dogs 2 / DedSec propaganda aesthetic. No 3D scanning, no p
 
 <img src="assets/demo/broadcast.webp" alt="Decrypt Reveal — the broadcast layer" width="720">
 
-[**▶ Live demo & visual guide**](https://your-username.github.io/decrypt-reveal/) · [**🎛 Playground**](https://your-username.github.io/decrypt-reveal/playground.html) · [**📖 Asset guide**](WORKFLOW.md)
+[**▶ Live demo & visual guide**](https://muhamadt4.github.io/decrypt-reveal/) · [**🎛 Playground**](https://muhamadt4.github.io/decrypt-reveal/playground.html) · [**📖 Asset guide**](WORKFLOW.md)
 
 </div>
 
@@ -171,7 +171,7 @@ decrypt-reveal/
 
 1. Push this repo to GitHub.
 2. **Settings → Pages → Source: `main` branch, `/root`.**
-3. Your site is live at `https://<username>.github.io/<repo>/`.
+3. Your site is live at `https://muhamadt4.github.io/decrypt-reveal/`.
 
 No build step. It's static files.
 
