@@ -16,7 +16,7 @@
   width: 100%;
   aspect-ratio: 16 / 9;               /* override with your own height if you like */
   background: #020810;
-  touch-action: none;
+  touch-action: pan-y;                /* let the page scroll vertically on touch; horizontal drags scan */
   user-select: none;
   -webkit-user-select: none;
   --dr-accent: #7EB8DA;

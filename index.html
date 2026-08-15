@@ -40,7 +40,7 @@
   .hero{max-width:none; padding:0; position:relative}
   #stage{
     position:relative; width:100%; height:min(92vh,860px); overflow:hidden;
-    cursor:none; touch-action:none; background:var(--deep);
+    cursor:none; touch-action:pan-y; background:var(--deep);
   }
   #stage img.lyr{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none}
   #stage .base{z-index:1}
@@ -65,17 +65,22 @@
 
   /* ── site nav (added for the open-source build) ── */
   nav.site{position:sticky; top:0; z-index:60; display:flex; align-items:center; justify-content:space-between;
-    gap:1rem; padding:14px clamp(20px,5vw,40px); background:rgba(0,12,20,.82);
+    gap:.6rem 1rem; flex-wrap:wrap; padding:14px clamp(16px,5vw,40px); background:rgba(0,12,20,.82);
     -webkit-backdrop-filter:blur(8px); backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line)}
   nav.site .brand{font-family:'Unica One',sans-serif; letter-spacing:.1em; text-transform:uppercase; font-size:20px}
   nav.site .brand b{color:var(--steel)}
-  nav.site .links{display:flex; gap:22px; font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase}
+  nav.site .links{display:flex; align-items:center; gap:22px; flex-wrap:wrap; justify-content:flex-end;
+    font-family:'IBM Plex Mono',monospace; font-size:11px; letter-spacing:.16em; text-transform:uppercase}
   nav.site .links a{color:var(--mute); text-decoration:none; transition:color .15s}
   nav.site .links a:hover{color:var(--ice)}
-  nav.site .links a.cta{color:var(--deep); background:var(--steel); padding:7px 14px; margin:-7px 0}
+  nav.site .links a.cta{color:var(--deep); background:var(--steel); padding:7px 14px}
   nav.site .links a.cta:hover{background:var(--ice)}
-  @media (max-width:640px){ nav.site .links a.plain{display:none} }
+  @media (max-width:560px){
+    nav.site{gap:.5rem}
+    nav.site .brand{font-size:18px}
+    nav.site .links{gap:14px; font-size:10px; width:100%; justify-content:space-between}
+  }
   .herocta{display:flex; gap:14px; margin-top:22px; pointer-events:auto; flex-wrap:wrap}
   .herocta a{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
     padding:12px 20px; text-decoration:none; transition:.15s}
@@ -93,7 +98,7 @@
   @keyframes blink{50%{opacity:.15}}
 
   /* ═══ 01 slider ═══ */
-  .cmp{position:relative; aspect-ratio:16/9; overflow:hidden; cursor:ew-resize; touch-action:none; -webkit-user-select:none; user-select:none}
+  .cmp{position:relative; aspect-ratio:16/9; overflow:hidden; cursor:ew-resize; touch-action:pan-y; -webkit-user-select:none; user-select:none}
   .cmp img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover; pointer-events:none}
   .cmp .top{clip-path:inset(0 calc(100% - var(--x,50%)) 0 0)}
   .cmp .bar{position:absolute; top:0; bottom:0; left:var(--x,50%); width:1px; background:var(--ice); z-index:3;
@@ -201,7 +206,54 @@
     .bugs{grid-template-columns:1fr}
     .step{grid-template-columns:44px 1fr; }
     .step .d{grid-column:2}
+    .shim{max-width:34rem; margin-left:auto; margin-right:auto}
   }
+
+  /* ── phones ── */
+  @media (max-width:600px){
+    section{padding:52px 18px 8px}
+    .divider{margin:44px auto 0}
+    h2{font-size:clamp(24px,7.5vw,34px)}
+    p.lead{font-size:14px}
+    .num{font-size:11px}
+
+    /* hero */
+    #stage{height:min(80vh,640px)}
+    .herocopy{left:18px; right:18px; bottom:64px}
+    .herocopy h1{font-size:clamp(40px,13vw,64px)}
+    .herocopy .sub{font-size:13px; max-width:none}
+    .herocta{gap:10px; margin-top:18px}
+    .herocta a{padding:11px 15px; font-size:11px}
+    .herohint{display:none}
+    .hudline{left:18px; font-size:9px}
+    #rec{right:18px; font-size:9px}
+
+    /* stack + legend */
+    .iso{height:320px} .iso-inner{width:200px; height:112px}
+    .legend button{grid-template-columns:40px 1fr; column-gap:12px; row-gap:4px; padding:12px}
+    .legend .n{grid-column:2}
+    .legend .d{grid-column:1 / -1}
+
+    /* pipeline */
+    .pipe{grid-template-columns:1fr; gap:22px}
+    .node{max-width:26rem; margin:0 auto}
+    .flow{white-space:normal; line-height:2; font-size:10px; letter-spacing:.1em; text-align:center}
+
+    /* shimmer / parallax / bugs / steps */
+    .thumbrow{gap:8px}
+    .depthbox{gap:10px}
+    code.glsl{font-size:10.5px; padding:14px 16px}
+    .bug{padding:20px}
+    .step{gap:12px 16px}
+
+    footer{padding:40px 18px 52px}
+  }
+
+  @media (max-width:380px){
+    .thumbrow{grid-template-columns:1fr 1fr}
+    .thumbrow>div:last-child{display:none}   /* keep two variant frames, drop the third so they stay legible */
+  }
+
   @media (prefers-reduced-motion: reduce){
     #stage{cursor:default}
   }
