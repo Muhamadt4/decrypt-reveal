@@ -1,14 +1,28 @@
 <div align="center">
 
-# Decrypt Reveal
+# ◉ Decrypt Reveal
 
 **Turn one photo into an interactive hero that hides a second, corrupted "hacker broadcast" truth — revealed through a cursor-following decrypt lens, with live glitches, particles, and real 3D depth parallax.**
 
 Inspired by the Watch Dogs 2 / DedSec propaganda aesthetic. No 3D scanning, no photoshoot, no paid tools — just one photo, any AI image generator, and a zero-dependency script.
 
-<img src="assets/demo/broadcast.webp" alt="Decrypt Reveal — the broadcast layer" width="720">
+<br>
 
-[**▶ Live demo & visual guide**](https://muhamadt4.github.io/decrypt-reveal/) · [**🎛 Playground**](https://muhamadt4.github.io/decrypt-reveal/playground.html) · [**📖 Asset guide**](WORKFLOW.md)
+[![Live demo](https://img.shields.io/website?url=https%3A%2F%2Fmuhamadt4.github.io%2Fdecrypt-reveal%2F&up_message=online&up_color=2ea44f&down_message=offline&label=live%20demo&style=for-the-badge)](https://muhamadt4.github.io/decrypt-reveal/)
+&nbsp;
+[![License: MIT](https://img.shields.io/github/license/Muhamadt4/decrypt-reveal?style=for-the-badge&color=7EB8DA)](LICENSE)
+&nbsp;
+![Dependencies: none](https://img.shields.io/badge/dependencies-none-020810?style=for-the-badge&labelColor=7EB8DA)
+&nbsp;
+![Vanilla JS](https://img.shields.io/badge/vanilla-JS-020810?style=for-the-badge&labelColor=B4D7E8)
+
+<br>
+
+<a href="https://muhamadt4.github.io/decrypt-reveal/"><img src="assets/demo/broadcast.webp" alt="Decrypt Reveal — hover to decrypt the hidden broadcast layer" width="820"></a>
+
+### [▶ Live demo & visual guide](https://muhamadt4.github.io/decrypt-reveal/) · [🎛 Playground](https://muhamadt4.github.io/decrypt-reveal/playground.html) · [📖 Asset guide](WORKFLOW.md) · [🛠 Implement](DOCS.md)
+
+<sub>Repo → **https://github.com/Muhamadt4/decrypt-reveal**</sub>
 
 </div>
 
@@ -186,6 +200,16 @@ No build step. It's static files.
 
 ---
 
+## Contributing
+
+Issues and PRs are welcome — new fallbacks, framework wrappers, and effect variants especially. If you edit the library in `dist/`, run `node build-playground.js` before committing so the playground's embedded copy stays in sync. Keep it dependency-free.
+
+## Credits
+
+Aesthetic inspired by the **Watch Dogs 2 / DedSec** propaganda look and award-site particle portraits. Built as an open resource so anyone can ship the effect for free.
+
 ## License
 
-MIT © contributors. Use it, remix it, ship it — a credit link back is appreciated but not required.
+Released under the [MIT License](LICENSE) — use it, remix it, ship it commercially. A credit link back is appreciated but not required.
+
+<div align="center"><sub>Built with vanilla HTML/CSS/JS · zero dependencies · <a href="https://muhamadt4.github.io/decrypt-reveal/">muhamadt4.github.io/decrypt-reveal</a></sub></div>
