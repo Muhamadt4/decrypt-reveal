@@ -174,6 +174,10 @@
   .thumbrow .tag{display:block; margin-top:8px}
 
   /* ═══ 05 parallax ═══ */
+  /* grid/flex items default to min-width:auto and refuse to shrink below their
+     content — a wide <code> block then blows the whole page width out. min-width:0
+     lets the column shrink so the code's own overflow-x:auto scrolls instead. */
+  .stackwrap>*,.shim>*,.par>*{min-width:0}
   .par{display:grid; grid-template-columns:1fr 1fr; gap:44px; align-items:center}
   .parstage{position:relative; aspect-ratio:928/1121; max-height:520px; margin:0 auto; width:auto; overflow:hidden}
   .parstage canvas,.parstage img{position:absolute; inset:0; width:100%; height:100%; object-fit:cover}
@@ -182,7 +186,7 @@
   .depthbox .frame{aspect-ratio:928/1121; overflow:hidden}
   .depthbox img{width:100%; height:100%; object-fit:cover}
   code.glsl{display:block; font-family:'IBM Plex Mono',monospace; font-size:11.5px; line-height:1.75; color:var(--ice);
-    background:rgba(0,12,22,.9); border:1px solid var(--line); padding:18px 20px; overflow-x:auto; white-space:pre; margin-top:18px}
+    background:rgba(0,12,22,.9); border:1px solid var(--line); padding:18px 20px; overflow-x:auto; white-space:pre; margin-top:18px; max-width:100%}
   code.glsl .c{color:rgba(232,232,232,.35)}
 
   /* ═══ 06 bugs ═══ */
