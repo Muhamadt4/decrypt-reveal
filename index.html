@@ -77,9 +77,13 @@
   nav.site .links a.cta{color:var(--deep); background:var(--steel); padding:7px 14px}
   nav.site .links a.cta:hover{background:var(--ice)}
   @media (max-width:560px){
-    nav.site{gap:.5rem}
+    nav.site{gap:.5rem; padding:12px 16px}
     nav.site .brand{font-size:18px}
-    nav.site .links{gap:14px; font-size:10px; width:100%; justify-content:space-between}
+    /* single tidy row that scrolls sideways instead of wrapping into a mess */
+    nav.site .links{width:100%; gap:16px; font-size:10px; flex-wrap:nowrap;
+      overflow-x:auto; justify-content:flex-start; scrollbar-width:none; -webkit-overflow-scrolling:touch}
+    nav.site .links::-webkit-scrollbar{display:none}
+    nav.site .links a{flex:0 0 auto; white-space:nowrap}
   }
   .herocta{display:flex; gap:14px; margin-top:22px; pointer-events:auto; flex-wrap:wrap}
   .herocta a{font-family:'IBM Plex Mono',monospace; font-size:12px; letter-spacing:.12em; text-transform:uppercase;
@@ -237,7 +241,9 @@
     /* pipeline */
     .pipe{grid-template-columns:1fr; gap:22px}
     .node{max-width:26rem; margin:0 auto}
-    .flow{white-space:normal; line-height:2; font-size:10px; letter-spacing:.1em; text-align:center}
+    /* the flow uses non-breaking spaces, so let it scroll sideways instead of overflowing the page */
+    .flow{font-size:10px; letter-spacing:.08em; white-space:nowrap; overflow-x:auto;
+      -webkit-overflow-scrolling:touch; padding-bottom:6px}
 
     /* shimmer / parallax / bugs / steps */
     .thumbrow{gap:8px}

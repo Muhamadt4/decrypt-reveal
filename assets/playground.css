@@ -14,7 +14,8 @@
 
   /* nav */
   nav{position:sticky;top:0;z-index:50;display:flex;align-items:center;justify-content:space-between;
-    gap:1rem;padding:.9rem 1.4rem;background:rgba(0,12,20,.82);backdrop-filter:blur(8px);
+    gap:1rem;padding:.9rem 1.4rem;background:rgba(0,12,20,.82);
+    -webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px);
     border-bottom:1px solid var(--line)}
   nav .brand{font-family:'Unica One',sans-serif;letter-spacing:.1em;text-transform:uppercase;font-size:1.15rem}
   nav .brand b{color:var(--steel)}
@@ -134,3 +135,25 @@
     color:var(--ink);font-size:.74rem;line-height:1.7;padding:.7rem 1.4rem}
   .filebanner b{color:var(--ice)}
   .filebanner code{font-family:'IBM Plex Mono',monospace;color:var(--steel);background:var(--deep);padding:.05rem .3rem}
+
+  /* ── mobile ── */
+  @media (max-width:64rem){
+    /* the preview no longer has a fixed-height parent, so give the stage a real height
+       (height:100% would collapse to 0 here → effect invisible) */
+    #stagewrap{min-height:auto}
+    #dr{height:auto;aspect-ratio:16/10;max-height:70vh}
+  }
+  @media (max-width:40rem){
+    nav{flex-wrap:wrap;gap:.5rem;padding:.75rem 1rem}
+    nav .brand{font-size:1rem}
+    /* single scrollable row instead of overflowing/wrapping messily */
+    nav .links{width:100%;gap:1rem;font-size:.66rem;flex-wrap:nowrap;overflow-x:auto;
+      justify-content:flex-start;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+    nav .links::-webkit-scrollbar{display:none}
+    nav .links a{flex:0 0 auto;white-space:nowrap}
+    .preview{padding:1rem}
+    .preview h1{font-size:1.3rem}
+    .preview .lead{font-size:.75rem}
+    .panel{padding:1rem 1rem 4rem}
+    .previewfoot{gap:.5rem}
+  }
